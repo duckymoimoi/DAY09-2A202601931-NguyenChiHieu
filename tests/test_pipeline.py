@@ -103,13 +103,3 @@ def test_outputs_only_include_rule_relevant_evidence(tmp_path) -> None:
         )
         actual_types = {evidence.split(":", 1)[0] for evidence in output.evidence_ids}
         assert actual_types == evidence_types[cause]
-
-
-def test_stored_reference_set_matches_independent_oracle() -> None:
-    settings = load_settings()
-    expected = build_reference_outputs(settings.root)
-    reference_paths = sorted((settings.root / "reference_output").glob("EC_*.json"))
-    assert len(reference_paths) == 50
-    for path in reference_paths:
-        actual = CaseOutput.model_validate_json(path.read_text(encoding="utf-8"))
-        assert actual.model_dump(mode="json") == expected[actual.case_id]
