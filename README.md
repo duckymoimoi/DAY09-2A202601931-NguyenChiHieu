@@ -200,3 +200,18 @@ Trong repo phải có thêm:
 2. Khi nộp bài, chỉ nén folder `output/` thành file zip; không đưa source code, `.env` hoặc các file audit vào zip này.
 3. Luôn commit toàn bộ source code lên repo trước khi nộp file output zip để chấm điểm.
 4. API key và secret phải đặt trong file `.env` và không được commit. Tên model sử dụng phải được khai báo rõ trong source code, đồng thời ghi lại trong `metadata.json` (Tức là model name không ghi vào .env, cho vào code để chấm)
+
+## 10. Cách chạy implementation
+
+Implementation dùng Python 3.11+, typed handoff bằng Pydantic và Groq `llama-3.1-8b-instant` (8B) làm agent audit không có quyền thay đổi kết quả deterministic.
+
+```powershell
+python -m pip install -e ".[test]"
+python -m pytest
+python -m app.main --llm-audit
+python -m scripts.validate_and_package
+```
+
+Lệnh chạy chính tự tìm mọi file JSON trong `input/`, index các CSV cần thiết một lần, tạo output cùng tên trong `output/`, ghi lượt trace mới nhất vào `logging/trace.jsonl` và metadata vào `logging/metadata.json`. Lệnh cuối xác minh lại từng output rồi tạo `output.zip` chỉ chứa các JSON kết quả.
+
+Secret được đọc từ `.env` ở root repo hoặc thư mục cha. Hỗ trợ `OPENAI_API_KEY`, `OPENAI_API_KEY_2` đến `OPENAI_API_KEY_7` và Groq-compatible `OPENAI_BASE_URL`. Model ID được cố định trong `app/config.py`, không lấy từ `.env`.
