@@ -35,6 +35,7 @@
   },
   "evidence_ids": [
     "order:966f96af9d189dc428ff04ebbca821b8",
+    "item:966f96af9d189dc428ff04ebbca821b8:1",
     "payment:966f96af9d189dc428ff04ebbca821b8:1",
     "policy:ORDER_CANCELED_AFTER_PAYMENT"
   ],

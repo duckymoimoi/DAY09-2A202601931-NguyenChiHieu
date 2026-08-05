@@ -6,7 +6,7 @@ and the LLM audit are not the authority for this review.
 
 Evidence profiles:
 
-- `CUP`: order, payment, policy
+- `CUP`: order, item, payment, policy
 - `UOP`: order, payment, policy
 - `LDS`: order, item, payment, responsible seller, policy
 - `LDL`: order, item, payment, policy

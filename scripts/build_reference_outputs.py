@@ -92,7 +92,7 @@ def build_reference_outputs(root: Path = ROOT) -> dict[str, dict[str, Any]]:
                 "issue_full_refund",
             )
             party_type, party_ids, refund = "platform", ["OLIST_PLATFORM"], payment_total
-            evidence_types = ("payment",)
+            evidence_types = ("item", "payment")
         elif status == "unavailable" and payment_total > 0:
             issue, cause, action = (
                 "unavailable_order_paid",
