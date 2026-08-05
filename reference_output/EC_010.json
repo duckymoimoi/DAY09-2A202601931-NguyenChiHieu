@@ -36,6 +36,7 @@
   "evidence_ids": [
     "order:3a119f52de09d1b2700815732def8b47",
     "item:3a119f52de09d1b2700815732def8b47:1",
+    "payment:3a119f52de09d1b2700815732def8b47:1",
     "policy:CARRIER_DELIVERED_AFTER_ESTIMATE"
   ],
   "financial_resolution": {

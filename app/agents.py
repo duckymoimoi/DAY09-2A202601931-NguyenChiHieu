@@ -27,8 +27,8 @@ def _as_float(value: Decimal) -> float:
 EVIDENCE_TYPES_BY_CAUSE: dict[str, tuple[str, ...]] = {
     "ORDER_CANCELED_AFTER_PAYMENT": ("payment",),
     "ORDER_UNAVAILABLE_AFTER_PAYMENT": ("payment",),
-    "SELLER_HANDOFF_AFTER_LIMIT": ("item", "seller"),
-    "CARRIER_DELIVERED_AFTER_ESTIMATE": ("item",),
+    "SELLER_HANDOFF_AFTER_LIMIT": ("item", "payment", "seller"),
+    "CARRIER_DELIVERED_AFTER_ESTIMATE": ("item", "payment"),
     "MULTIPLE_PAYMENTS_RECONCILED": ("item", "payment"),
     "DELIVERY_WITHIN_ESTIMATE": ("item", "payment"),
 }

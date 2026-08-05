@@ -110,7 +110,7 @@ def build_reference_outputs(root: Path = ROOT) -> dict[str, dict[str, Any]]:
             party_type = "seller"
             party_ids = sorted({row["seller_id"] for row in late_items})
             refund = freight_total
-            evidence_types = ("item", "seller")
+            evidence_types = ("item", "payment", "seller")
         elif delivered_late and order_items and carrier_date:
             issue, cause, action = (
                 "late_delivery_logistics",
@@ -122,7 +122,7 @@ def build_reference_outputs(root: Path = ROOT) -> dict[str, dict[str, Any]]:
                 ["LOGISTICS_PROVIDER"],
                 freight_total,
             )
-            evidence_types = ("item",)
+            evidence_types = ("item", "payment")
         elif len(order_payments) >= 2 and payment_difference <= TOLERANCE:
             issue, cause, action = (
                 "valid_split_payment",

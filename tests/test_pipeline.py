@@ -90,8 +90,8 @@ def test_outputs_only_include_rule_relevant_evidence(tmp_path) -> None:
     evidence_types = {
         "ORDER_CANCELED_AFTER_PAYMENT": {"order", "payment", "policy"},
         "ORDER_UNAVAILABLE_AFTER_PAYMENT": {"order", "payment", "policy"},
-        "SELLER_HANDOFF_AFTER_LIMIT": {"order", "item", "seller", "policy"},
-        "CARRIER_DELIVERED_AFTER_ESTIMATE": {"order", "item", "policy"},
+        "SELLER_HANDOFF_AFTER_LIMIT": {"order", "item", "payment", "seller", "policy"},
+        "CARRIER_DELIVERED_AFTER_ESTIMATE": {"order", "item", "payment", "policy"},
         "MULTIPLE_PAYMENTS_RECONCILED": {"order", "item", "payment", "policy"},
         "DELIVERY_WITHIN_ESTIMATE": {"order", "item", "payment", "policy"},
     }
