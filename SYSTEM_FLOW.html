@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Luồng xử lý chi tiết của hệ thống multi-agent phân tích khiếu nại Olist.">
+  <title>Luồng xử lý Multi-Agent Olist</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --ink: #172033;
+      --muted: #64748b;
+      --line: #dbe3ef;
+      --blue: #2563eb;
+      --blue-soft: #eaf1ff;
+      --green: #16835b;
+      --green-soft: #e8f8f1;
+      --amber: #b76b00;
+      --amber-soft: #fff4dc;
+      --violet: #7551c9;
+      --violet-soft: #f1ecff;
+      --red: #c0363b;
+      --shadow: 0 18px 45px rgba(31, 45, 78, .09);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% 2%, rgba(37, 99, 235, .10), transparent 26rem),
+        radial-gradient(circle at 92% 12%, rgba(22, 131, 91, .09), transparent 24rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    a { color: var(--blue); }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code {
+      padding: .12rem .38rem;
+      border-radius: .38rem;
+      background: #edf2f8;
+      font-size: .91em;
+    }
+    pre {
+      overflow: auto;
+      margin: 0;
+      padding: 1rem;
+      border: 1px solid #27344d;
+      border-radius: 14px;
+      background: #111827;
+      color: #dbeafe;
+      font-size: .84rem;
+      line-height: 1.55;
+    }
+
+    .hero {
+      padding: 64px 24px 98px;
+      background: linear-gradient(125deg, #101c37 0%, #173c78 54%, #12624e 120%);
+      color: white;
+    }
+    .hero-inner, main, .footer-inner { width: min(1180px, 100%); margin-inline: auto; }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .4rem .75rem;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 999px;
+      background: rgba(255,255,255,.09);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before { content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: #62e7b4; }
+    h1 {
+      max-width: 800px;
+      margin: 20px 0 14px;
+      font-size: clamp(2.2rem, 5vw, 4.6rem);
+      line-height: 1.02;
+      letter-spacing: -.055em;
+    }
+    .hero p { max-width: 790px; margin: 0; color: #d9e7ff; font-size: clamp(1rem, 2vw, 1.18rem); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      min-height: 44px;
+      padding: .7rem 1rem;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 12px;
+      background: rgba(255,255,255,.10);
+      color: white;
+      text-decoration: none;
+      font-weight: 750;
+    }
+    .button.primary { background: white; color: #173c78; }
+
+    main { padding: 0 24px 72px; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: -46px;
+    }
+    .metric {
+      min-height: 120px;
+      padding: 21px;
+      border: 1px solid rgba(219,227,239,.9);
+      border-radius: 18px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .metric strong { display: block; margin-bottom: 4px; font-size: 1.7rem; line-height: 1.2; }
+    .metric span { color: var(--muted); font-size: .9rem; }
+
+    section { scroll-margin-top: 18px; margin-top: 58px; }
+    .section-kicker { color: var(--blue); font-size: .78rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+    h2 { margin: .35rem 0 .6rem; font-size: clamp(1.65rem, 3vw, 2.35rem); letter-spacing: -.035em; line-height: 1.16; }
+    h3 { margin: 0 0 .6rem; line-height: 1.3; }
+    .section-lead { max-width: 780px; margin: 0; color: var(--muted); }
+
+    .flow-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(340px, .8fr);
+      gap: 22px;
+      align-items: start;
+      margin-top: 24px;
+    }
+    .flow-board, .detail-panel, .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .flow-board { padding: 20px; }
+    .flow-row { display: grid; grid-template-columns: 1fr 42px 1fr; align-items: stretch; }
+    .flow-row.single { grid-template-columns: 1fr; }
+    .arrow {
+      display: grid;
+      place-items: center;
+      color: #8da0bb;
+      font-size: 1.4rem;
+      font-weight: 800;
+    }
+    .down-arrow { height: 34px; display: grid; place-items: center; color: #8da0bb; font-size: 1.3rem; }
+    .stage {
+      width: 100%;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: var(--surface-soft);
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+    .stage:hover { transform: translateY(-2px); border-color: #9fb9e8; box-shadow: 0 10px 22px rgba(37,99,235,.10); }
+    .stage:focus-visible { outline: 3px solid rgba(37,99,235,.25); outline-offset: 2px; }
+    .stage.active { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 1px var(--blue); }
+    .stage-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .stage-number {
+      display: inline-grid;
+      place-items: center;
+      width: 27px;
+      height: 27px;
+      border-radius: 9px;
+      background: #dbe7fa;
+      color: #234a8f;
+      font-size: .78rem;
+      font-weight: 900;
+    }
+    .stage strong { display: block; margin-top: 10px; font-size: 1rem; }
+    .stage small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.4; }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: .24rem .48rem;
+      border-radius: 999px;
+      font-size: .67rem;
+      font-weight: 850;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .tag.rule { background: var(--green-soft); color: var(--green); }
+    .tag.agent { background: var(--blue-soft); color: var(--blue); }
+    .tag.llm { background: var(--violet-soft); color: var(--violet); }
+    .tag.io { background: var(--amber-soft); color: var(--amber); }
+
+    .detail-panel { position: sticky; top: 18px; overflow: hidden; }
+    .detail-head { padding: 22px; background: linear-gradient(135deg, #17294c, #24589a); color: white; }
+    .detail-head .tag { background: rgba(255,255,255,.14); color: white; }
+    .detail-head h3 { margin-top: 13px; font-size: 1.35rem; }
+    .detail-head p { margin: 0; color: #dce9ff; font-size: .92rem; }
+    .detail-body { padding: 22px; }
+    .detail-block + .detail-block { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .detail-label { display: block; margin-bottom: 5px; color: var(--muted); font-size: .72rem; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .detail-body p { margin: 0; font-size: .92rem; }
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill { padding: .34rem .55rem; border-radius: 8px; background: #eef3f9; color: #31415f; font-size: .77rem; font-family: Consolas, monospace; }
+
+    .agent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+    .agent-card { padding: 21px; }
+    .agent-card .icon { display: grid; place-items: center; width: 43px; height: 43px; margin-bottom: 14px; border-radius: 13px; background: var(--blue-soft); color: var(--blue); font-weight: 900; }
+    .agent-card p { margin: 0 0 14px; color: var(--muted); font-size: .9rem; }
+    .mini-row { display: grid; grid-template-columns: 66px 1fr; gap: 8px; padding-top: 9px; border-top: 1px solid var(--line); font-size: .82rem; }
+    .mini-row + .mini-row { margin-top: 9px; }
+    .mini-row b { color: var(--muted); }
+
+    .table-wrap { overflow-x: auto; margin-top: 24px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; }
+    th, td { padding: 14px 15px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-size: .86rem; }
+    th { background: #f2f6fb; color: #40516e; font-size: .74rem; letter-spacing: .05em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fafcff; }
+    .priority { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: #e8effa; color: #244c91; font-weight: 900; }
+
+    .contract-grid, .sample-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 24px; }
+    .card { padding: 22px; }
+    .card > p { color: var(--muted); }
+    .equation { padding: 15px; border-left: 4px solid var(--green); border-radius: 0 12px 12px 0; background: var(--green-soft); font-family: Consolas, monospace; font-size: .87rem; }
+    .callout {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      margin-top: 20px;
+      padding: 18px;
+      border: 1px solid #f0d9a5;
+      border-radius: 16px;
+      background: var(--amber-soft);
+    }
+    .callout-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: white; color: var(--amber); font-weight: 900; }
+    .callout strong { display: block; }
+    .callout p { margin: 2px 0 0; color: #75511f; font-size: .9rem; }
+
+    .case-track { display: grid; gap: 10px; }
+    .case-event { position: relative; padding: 13px 14px 13px 42px; border-radius: 13px; background: #f3f7fc; font-size: .87rem; }
+    .case-event::before { content: attr(data-n); position: absolute; left: 12px; top: 13px; display: grid; place-items: center; width: 21px; height: 21px; border-radius: 7px; background: #d7e4f8; color: #214b91; font-size: .7rem; font-weight: 900; }
+    .case-event b { display: block; }
+    .case-event span { color: var(--muted); }
+
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+    footer { padding: 28px 24px; border-top: 1px solid var(--line); background: #edf2f8; color: var(--muted); font-size: .86rem; }
+    .footer-inner { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+
+    @media (max-width: 900px) {
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .flow-layout { grid-template-columns: 1fr; }
+      .detail-panel { position: static; }
+      .agent-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 620px) {
+      .hero { padding-top: 42px; }
+      main { padding-inline: 14px; }
+      .summary-grid, .agent-grid, .contract-grid, .sample-grid { grid-template-columns: 1fr; }
+      .flow-row { grid-template-columns: 1fr; gap: 9px; }
+      .arrow { transform: rotate(90deg); min-height: 24px; }
+      .metric { min-height: 98px; }
+      .flow-board { padding: 13px; }
+    }
+    @media print {
+      body { background: white; }
+      .hero { padding: 30px; background: #173c78; }
+      main { width: 100%; padding: 0 20px; }
+      .summary-grid { margin-top: 20px; }
+      .detail-panel { position: static; }
+      .stage { break-inside: avoid; }
+      section { break-inside: avoid; }
+      .button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">DAY 09 · Multi-Agent A2A</span>
+      <h1>Từ một khiếu nại đến kết quả có thể kiểm chứng</h1>
+      <p>
+        Tài liệu trực quan mô tả toàn bộ pipeline: dữ liệu đi vào đâu, mỗi agent làm gì,
+        rule nào quyết định kết quả, LLM tham gia ở mức nào và output được kiểm tra ra sao.
+      </p>
+      <div class="hero-actions">
+        <a class="button primary" href="#interactive-flow">Xem luồng tương tác ↓</a>
+        <a class="button" href="#example">Theo dõi case EC_001</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="summary-grid" aria-label="Tóm tắt hệ thống">
+      <div class="metric"><strong>50</strong><span>case JSON được xử lý trong một batch</span></div>
+      <div class="metric"><strong>7 agents</strong><span>gồm coordinator, domain, policy, audit và verifier</span></div>
+      <div class="metric"><strong>6 rules</strong><span>áp dụng theo thứ tự ưu tiên cố định</span></div>
+      <div class="metric"><strong>1 nguồn thật</strong><span>CSV + EC_POLICY_V1 quyết định output cuối</span></div>
+    </div>
+
+    <section id="interactive-flow">
+      <span class="section-kicker">Luồng tương tác</span>
+      <h2>Chọn một bước để xem input và output</h2>
+      <p class="section-lead">
+        Các bước bên trái phản ánh đúng thứ tự chạy trong <code>MultiAgentPipeline</code>.
+        Nhấn vào từng khối để xem trách nhiệm, dữ liệu nhận vào và dữ liệu bàn giao.
+      </p>
+      <div class="legend" aria-label="Chú giải">
+        <span class="tag io">I/O</span>
+        <span class="tag agent">Agent</span>
+        <span class="tag rule">Rule-based</span>
+        <span class="tag llm">LLM tùy chọn</span>
+      </div>
+
+      <div class="flow-layout">
+        <div class="flow-board" id="flowBoard">
+          <div class="flow-row">
+            <button class="stage active" data-step="input">
+              <span class="stage-top"><span class="stage-number">1</span><span class="tag io">I/O</span></span>
+              <strong>Đọc và kiểm tra input</strong>
+              <small>50 file JSON → danh sách case hợp lệ</small>
+            </button>
+            <div class="arrow" aria-hidden="true">→</div>
+            <button class="stage" data-step="repository">
+              <span class="stage-top"><span class="stage-number">2</span><span class="tag rule">Data</span></span>
+              <strong>Tra cứu dữ liệu Olist</strong>
+              <small>Join order, item, payment và seller</small>
+            </button>
+          </div>
+          <div class="down-arrow" aria-hidden="true">↓</div>
+          <div class="flow-row single">
+            <button class="stage" data-step="coordinator">
+              <span class="stage-top"><span class="stage-number">3</span><span class="tag agent">Agent</span></span>
+              <strong>Coordinator phân công</strong>
+              <small>Nhận CaseContext và gọi các agent nghiệp vụ</small>
+            </button>
+          </div>
+          <div class="down-arrow" aria-hidden="true">↓</div>
+          <div class="flow-row">
+            <button class="stage" data-step="order">
+              <span class="stage-top"><span class="stage-number">4A</span><span class="tag agent">Agent</span></span>
+              <strong>Order & Seller</strong>
+              <small>Trạng thái đơn và seller bàn giao muộn</small>
+            </button>
+            <div class="arrow" aria-hidden="true">+</div>
+            <button class="stage" data-step="payment">
+              <span class="stage-top"><span class="stage-number">4B</span><span class="tag agent">Agent</span></span>
+              <strong>Payment</strong>
+              <small>Đối soát item, freight và payment</small>
+            </button>
+          </div>
+          <div style="height:9px"></div>
+          <div class="flow-row single">
+            <button class="stage" data-step="delivery">
+              <span class="stage-top"><span class="stage-number">4C</span><span class="tag agent">Agent</span></span>
+              <strong>Delivery</strong>
+              <small>Giao thành công, đúng hạn và có handoff hay không</small>
+            </button>
+          </div>
+          <div class="down-arrow" aria-hidden="true">↓ InvestigationBundle</div>
+          <div class="flow-row single">
+            <button class="stage" data-step="policy">
+              <span class="stage-top"><span class="stage-number">5</span><span class="tag rule">Rule-based</span></span>
+              <strong>Policy Agent ra quyết định</strong>
+              <small>Rule đầu tiên khớp sẽ tạo CaseOutput</small>
+            </button>
+          </div>
+          <div class="down-arrow" aria-hidden="true">↓</div>
+          <div class="flow-row">
+            <button class="stage" data-step="audit">
+              <span class="stage-top"><span class="stage-number">6A</span><span class="tag llm">LLM</span></span>
+              <strong>Groq audit tùy chọn</strong>
+              <small>So sánh issue, không sửa output</small>
+            </button>
+            <div class="arrow" aria-hidden="true">→</div>
+            <button class="stage" data-step="verifier">
+              <span class="stage-top"><span class="stage-number">6B</span><span class="tag rule">Rule-based</span></span>
+              <strong>Verifier bắt buộc</strong>
+              <small>Tính lại và chặn mọi kết quả sai</small>
+            </button>
+          </div>
+          <div class="down-arrow" aria-hidden="true">↓ Pass</div>
+          <div class="flow-row single">
+            <button class="stage" data-step="output">
+              <span class="stage-top"><span class="stage-number">7</span><span class="tag io">I/O</span></span>
+              <strong>Ghi output và nhật ký</strong>
+              <small>JSON atomic + trace.jsonl + metadata.json</small>
+            </button>
+          </div>
+        </div>
+
+        <aside class="detail-panel" aria-live="polite">
+          <div class="detail-head">
+            <span class="tag" id="detailType">I/O</span>
+            <h3 id="detailTitle">1. Đọc và kiểm tra input</h3>
+            <p id="detailMeaning">Bảo đảm batch đầu vào có cấu trúc rõ ràng trước khi truy xuất dữ liệu.</p>
+          </div>
+          <div class="detail-body">
+            <div class="detail-block">
+              <span class="detail-label">Input</span>
+              <div class="pills" id="detailInput"></div>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Xử lý chính</span>
+              <p id="detailProcess"></p>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Output / Handoff</span>
+              <div class="pills" id="detailOutput"></div>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Loại xử lý</span>
+              <p id="detailAuthority"></p>
+            </div>
+            <div class="detail-block">
+              <span class="detail-label">Source code</span>
+              <p><a id="detailSource" href="app/pipeline.py">app/pipeline.py</a></p>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="agents">
+      <span class="section-kicker">Vai trò các agent</span>
+      <h2>Mỗi agent chỉ phụ trách một phần rõ ràng</h2>
+      <p class="section-lead">Handoff dùng Pydantic contract, nhờ đó agent sau biết chính xác cấu trúc dữ liệu agent trước bàn giao.</p>
+      <div class="agent-grid">
+        <article class="card agent-card">
+          <div class="icon">CO</div><h3>Coordinator</h3>
+          <p>Điều phối toàn bộ vòng đời case; không tự phán quyết nghiệp vụ.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>InputCase</code>, <code>CaseContext</code></span></div>
+          <div class="mini-row"><b>Gửi</b><span>Handoff, bundle, output file</span></div>
+        </article>
+        <article class="card agent-card">
+          <div class="icon">OS</div><h3>Order & Seller</h3>
+          <p>Xác định trạng thái đơn, item/seller liên quan và seller bàn giao sau hạn.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>CaseContext</code></span></div>
+          <div class="mini-row"><b>Trả</b><span><code>OrderFacts</code></span></div>
+        </article>
+        <article class="card agent-card">
+          <div class="icon">PA</div><h3>Payment</h3>
+          <p>Cộng tiền bằng Decimal và kiểm tra payment có khớp item + freight hay không.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>CaseContext</code></span></div>
+          <div class="mini-row"><b>Trả</b><span><code>PaymentFacts</code></span></div>
+        </article>
+        <article class="card agent-card">
+          <div class="icon">DE</div><h3>Delivery</h3>
+          <p>So sánh ngày giao thực tế với ngày dự kiến và kiểm tra carrier handoff.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>CaseContext</code></span></div>
+          <div class="mini-row"><b>Trả</b><span><code>DeliveryFacts</code></span></div>
+        </article>
+        <article class="card agent-card">
+          <div class="icon">PO</div><h3>Policy</h3>
+          <p>Áp dụng EC_POLICY_V1 theo priority và dựng đầy đủ kết quả đầu ra.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>InvestigationBundle</code></span></div>
+          <div class="mini-row"><b>Trả</b><span><code>Decision</code>, <code>CaseOutput</code></span></div>
+        </article>
+        <article class="card agent-card">
+          <div class="icon">AI</div><h3>Groq Audit</h3>
+          <p>Kiểm tra bổ sung rằng issue đã chọn trùng với issue kỳ vọng; không được sửa kết quả.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>InvestigationBundle</code>, selected issue</span></div>
+          <div class="mini-row"><b>Trả</b><span><code>AuditResult</code>, token usage</span></div>
+        </article>
+        <article class="card agent-card">
+          <div class="icon">VE</div><h3>Verifier</h3>
+          <p>Tính lại expected result độc lập và từ chối candidate nếu có bất kỳ sai lệch nào.</p>
+          <div class="mini-row"><b>Nhận</b><span><code>CaseContext</code>, <code>CaseOutput</code></span></div>
+          <div class="mini-row"><b>Trả</b><span>Danh sách lỗi; rỗng nghĩa là pass</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="contracts">
+      <span class="section-kicker">Input · Handoff · Output</span>
+      <h2>Dữ liệu thay đổi hình dạng như thế nào?</h2>
+      <div class="contract-grid">
+        <article class="card">
+          <h3>Input của một case</h3>
+          <p>Yêu cầu khách hàng chỉ xác định case và order cần kiểm tra; nội dung khiếu nại không được dùng thay cho fact trong CSV.</p>
+<pre>{
+  "case_id": "EC_001",
+  "opened_at": "...",
+  "customer_request": {
+    "language": "vi",
+    "message": "...",
+    "claimed_order_id": "e2a03c..."
+  },
+  "policy_version": "EC_POLICY_V1"
+}</pre>
+        </article>
+        <article class="card">
+          <h3>Handoff giữa các agent</h3>
+          <p>Ba gói fact được ghép thành một contract duy nhất trước khi Policy Agent xử lý.</p>
+<pre>InvestigationBundle
+├── case_id
+├── order: OrderFacts
+│   ├── order_status
+│   └── late_seller_ids
+├── payment: PaymentFacts
+│   ├── totals + difference
+│   └── reconciled
+└── delivery: DeliveryFacts
+    ├── delivered_after_estimate
+    └── carrier_handoff_known</pre>
+        </article>
+        <article class="card">
+          <h3>Các phép tính cốt lõi</h3>
+          <div class="equation">item_total = Σ item.price</div>
+          <div class="equation" style="margin-top:9px">freight_total = Σ item.freight_value</div>
+          <div class="equation" style="margin-top:9px">payment_total = Σ payment.payment_value</div>
+          <div class="equation" style="margin-top:9px">difference = |payment − item − freight|</div>
+          <p>Dùng <code>Decimal</code>, làm tròn tiền đến hai chữ số; payment được coi là reconciled khi difference ≤ 0.10 BRL.</p>
+        </article>
+        <article class="card">
+          <h3>Output cuối của một case</h3>
+          <p>Một file <code>output/EC_xxx.json</code> chứa sáu nhóm thông tin được grader đánh giá.</p>
+<pre>CaseOutput
+├── assessment
+├── affected_entities
+├── root_cause_analysis
+├── evidence_ids
+├── financial_resolution
+└── resolution_actions</pre>
+        </article>
+      </div>
+    </section>
+
+    <section id="rules">
+      <span class="section-kicker">Bộ máy quyết định</span>
+      <h2>Sáu rule theo thứ tự ưu tiên</h2>
+      <p class="section-lead">Duyệt từ trên xuống; rule đầu tiên khớp sẽ thắng. Không có điều kiện theo <code>case_id</code>.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Ưu tiên</th><th>Điều kiện</th><th>Primary issue</th><th>Chịu trách nhiệm</th><th>Refund</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td><span class="priority">1</span></td><td>Canceled và payment &gt; 0</td><td><code>canceled_order_paid</code></td><td>Platform</td><td>Toàn bộ payment</td><td><code>issue_full_refund</code></td></tr>
+            <tr><td><span class="priority">2</span></td><td>Unavailable và payment &gt; 0</td><td><code>unavailable_order_paid</code></td><td>Platform</td><td>Toàn bộ payment</td><td><code>issue_full_refund</code></td></tr>
+            <tr><td><span class="priority">3</span></td><td>Giao trễ và có seller handoff muộn</td><td><code>late_delivery_seller</code></td><td>Seller vi phạm</td><td>Freight</td><td><code>refund_freight</code></td></tr>
+            <tr><td><span class="priority">4</span></td><td>Giao trễ, có handoff, không seller muộn</td><td><code>late_delivery_logistics</code></td><td>Logistics</td><td>Freight</td><td><code>refund_freight</code></td></tr>
+            <tr><td><span class="priority">5</span></td><td>≥ 2 payment và đối soát khớp</td><td><code>valid_split_payment</code></td><td>Không có</td><td>0</td><td><code>explain_valid_split_payment</code></td></tr>
+            <tr><td><span class="priority">6</span></td><td>Giao đúng hạn và đối soát khớp</td><td><code>unsupported_late_claim</code></td><td>Không có</td><td>0</td><td><code>reject_late_refund</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <div class="callout-mark">!</div>
+        <div><strong>Vì sao phải có priority?</strong><p>Một đơn có thể đồng thời có nhiều payment và giao đúng hạn. Rule split payment đứng trước nên hệ thống giải thích giao dịch tách, thay vì chỉ bác yêu cầu giao trễ.</p></div>
+      </div>
+    </section>
+
+    <section id="evidence">
+      <span class="section-kicker">Bằng chứng</span>
+      <h2>Evidence phải chứng minh đúng kết luận</h2>
+      <p class="section-lead">Mỗi ID trỏ đến một row thật hoặc policy code. Policy evidence luôn được giữ ở slot cuối trong giới hạn 10 ID.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cause code</th><th>Evidence cần lấy</th><th>Mục đích</th></tr></thead>
+          <tbody>
+            <tr><td><code>ORDER_CANCELED_AFTER_PAYMENT</code></td><td>order + item + payment + policy</td><td>Chứng minh trạng thái, giá trị hàng và khoản đã trả</td></tr>
+            <tr><td><code>ORDER_UNAVAILABLE_AFTER_PAYMENT</code></td><td>order + payment + policy</td><td>Đơn unavailable có thể không tồn tại item</td></tr>
+            <tr><td><code>SELLER_HANDOFF_AFTER_LIMIT</code></td><td>order + item + payment + seller + policy</td><td>Gắn đúng seller chịu trách nhiệm</td></tr>
+            <tr><td><code>CARRIER_DELIVERED_AFTER_ESTIMATE</code></td><td>order + item + payment + policy</td><td>Chứng minh giao trễ và số freight</td></tr>
+            <tr><td><code>MULTIPLE_PAYMENTS_RECONCILED</code></td><td>order + item + payment + policy</td><td>Chứng minh các payment cộng lại hợp lệ</td></tr>
+            <tr><td><code>DELIVERY_WITHIN_ESTIMATE</code></td><td>order + item + payment + policy</td><td>Chứng minh giao đúng hạn và không cần refund</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="example">
+      <span class="section-kicker">Ví dụ end-to-end</span>
+      <h2>Theo dõi EC_001 qua toàn bộ pipeline</h2>
+      <div class="sample-grid">
+        <article class="card">
+          <h3>Dữ liệu chính</h3>
+          <div class="case-track">
+            <div class="case-event" data-n="1"><b>Order</b><span>delivered; customer nhận 15/12, estimated 12/12 → giao trễ</span></div>
+            <div class="case-event" data-n="2"><b>Item & seller</b><span>carrier nhận 13/12, shipping limit 04/12 → seller handoff muộn</span></div>
+            <div class="case-event" data-n="3"><b>Payment</b><span>119.90 + 12.04 = 131.94 BRL, khớp payment 131.94</span></div>
+            <div class="case-event" data-n="4"><b>Policy</b><span>Rule 3 thắng → <code>late_delivery_seller</code></span></div>
+            <div class="case-event" data-n="5"><b>Resolution</b><span>Seller chịu trách nhiệm; hoàn freight 12.04 BRL</span></div>
+          </div>
+        </article>
+        <article class="card">
+          <h3>Kết luận được tạo</h3>
+<pre>{
+  "assessment": {
+    "primary_issue": "late_delivery_seller",
+    "case_status": "action_required",
+    "confidence": 1.0
+  },
+  "root_cause": "SELLER_HANDOFF_AFTER_LIMIT",
+  "responsible_party": "seller/f7496d...",
+  "recommended_refund_brl": 12.04,
+  "resolution_action": "refund_freight"
+}</pre>
+          <div class="callout">
+            <div class="callout-mark">✓</div>
+            <div><strong>Verifier kiểm tra lại</strong><p>Nếu issue, money, evidence, party hoặc action sai, case bị chặn và không được ghi thành output cuối.</p></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="authority">
+      <span class="section-kicker">Rule-based và LLM</span>
+      <h2>Ai thực sự có quyền quyết định?</h2>
+      <div class="contract-grid">
+        <article class="card">
+          <span class="tag rule">Nguồn quyết định</span>
+          <h3 style="margin-top:12px">Rule-based deterministic</h3>
+          <p>Đọc CSV, tính ngày/tiền, chọn policy, dựng evidence, tính refund và verify. Cùng input sẽ tạo cùng output, kể cả khi không có API key.</p>
+        </article>
+        <article class="card">
+          <span class="tag llm">Không có quyền sửa</span>
+          <h3 style="margin-top:12px">Groq LLM audit</h3>
+          <p>Chỉ so sánh <code>selected_issue</code> với <code>expected_issue</code>, trả về agreed/reason và ghi trace. API lỗi không làm đổi candidate deterministic.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <span>DAY09-2A202601931-NguyenChiHieu · Tài liệu luồng hệ thống</span>
+      <span>Mở offline, không phụ thuộc thư viện hoặc CDN bên ngoài.</span>
+    </div>
+  </footer>
+
+  <script>
+    const details = {
+      input: {
+        type: "I/O + validation", title: "1. Đọc và kiểm tra input",
+        meaning: "Bảo đảm batch đầu vào có cấu trúc rõ ràng trước khi truy xuất dữ liệu.",
+        input: ["input/*.json", "InputCase schema"],
+        process: "Sắp xếp file, parse bằng Pydantic; kiểm tra tên file = case_id, không trùng case_id và không trùng claimed_order_id.",
+        output: ["list[(Path, InputCase)]", "target order IDs"],
+        authority: "Rule-based validation. Sai schema hoặc trùng dữ liệu thì dừng ngay.",
+        source: "app/pipeline.py"
+      },
+      repository: {
+        type: "Data preparation", title: "2. Tra cứu dữ liệu Olist",
+        meaning: "Biến claimed_order_id thành dữ liệu nghiệp vụ có thể tính toán.",
+        input: ["claimed_order_id", "orders CSV", "items CSV", "payments CSV", "sellers CSV"],
+        process: "Index các row thuộc target order; cộng tiền bằng Decimal; suy ra giao trễ, giao đúng hạn và seller handoff muộn.",
+        output: ["CaseContext", "item_total", "freight_total", "payment_total", "late_seller_ids"],
+        authority: "Deterministic data join; CSV là nguồn fact, không dùng LLM.",
+        source: "app/data_repository.py"
+      },
+      coordinator: {
+        type: "Agent điều phối", title: "3. Coordinator Agent",
+        meaning: "Giữ đúng thứ tự xử lý và chuyển dữ liệu giữa các agent.",
+        input: ["InputCase", "CaseContext"],
+        process: "Gọi ba domain agent tuần tự, ghép fact packet, gọi Policy, audit tùy chọn, Verifier và chỉ ghi output sau khi pass.",
+        output: ["handoff events", "InvestigationBundle", "verified CaseOutput"],
+        authority: "Điều phối, không tự quyết primary issue hay refund.",
+        source: "app/pipeline.py"
+      },
+      order: {
+        type: "Domain agent", title: "4A. Order & Seller Agent",
+        meaning: "Trả lời đơn đang ở trạng thái nào và seller nào bàn giao trễ.",
+        input: ["CaseContext.order", "CaseContext.items", "carrier_date", "shipping_limit_date"],
+        process: "Liệt kê item/seller; seller bị đánh dấu muộn khi carrier_date lớn hơn shipping_limit_date của item.",
+        output: ["OrderFacts", "order_status", "item_ids", "seller_ids", "late_seller_ids"],
+        authority: "Rule-based fact extraction; chưa đưa ra kết luận policy.",
+        source: "app/agents.py"
+      },
+      payment: {
+        type: "Domain agent", title: "4B. Payment Agent",
+        meaning: "Đối soát tổng tiền hàng, vận chuyển và khoản khách đã trả.",
+        input: ["item rows", "payment rows", "tolerance = 0.10 BRL"],
+        process: "Tính |payment_total − item_total − freight_total|. Không nhân payment_value với installments.",
+        output: ["PaymentFacts", "totals", "difference", "reconciled"],
+        authority: "Rule-based arithmetic bằng Decimal.",
+        source: "app/agents.py"
+      },
+      delivery: {
+        type: "Domain agent", title: "4C. Delivery Agent",
+        meaning: "Xác định khách đã nhận hàng và đơn có giao sau ngày dự kiến hay không.",
+        input: ["customer_date", "estimated_delivery_date", "carrier_date"],
+        process: "So sánh timestamp giao thực tế với estimated date và kiểm tra timestamp carrier handoff có tồn tại.",
+        output: ["DeliveryFacts", "delivered_to_customer", "delivered_after_estimate", "carrier_handoff_known"],
+        authority: "Rule-based date comparison.",
+        source: "app/agents.py"
+      },
+      policy: {
+        type: "Rule-based agent", title: "5. Policy Agent",
+        meaning: "Chuyển các fact đã xác minh thành kết luận và phương án xử lý.",
+        input: ["InvestigationBundle", "CaseContext", "EC_POLICY_V1"],
+        process: "Duyệt sáu rule theo priority; rule đầu tiên khớp quyết định issue, cause, party, refund và action; sau đó dựng evidence.",
+        output: ["Decision", "CaseOutput"],
+        authority: "Nguồn quyết định nghiệp vụ chính; hoàn toàn deterministic.",
+        source: "app/policy.py"
+      },
+      audit: {
+        type: "LLM tùy chọn", title: "6A. Groq Policy Audit Agent",
+        meaning: "Tạo một lớp kiểm tra bổ sung và trace model khi bật --llm-audit.",
+        input: ["InvestigationBundle", "selected_issue", "Groq API key"],
+        process: "Tự xác định expected_issue theo cùng priority rồi yêu cầu model so sánh hai chuỗi, trả JSON agreed/reason.",
+        output: ["AuditResult", "agreed", "reason", "token usage"],
+        authority: "Không có quyền sửa output. Nếu tắt hoặc API lỗi, pipeline deterministic vẫn tiếp tục.",
+        source: "app/llm_audit.py"
+      },
+      verifier: {
+        type: "Rule-based quality gate", title: "6B. Verifier Agent",
+        meaning: "Ngăn mọi candidate không khớp dữ liệu hoặc policy được ghi ra.",
+        input: ["CaseContext", "CaseOutput candidate"],
+        process: "Tính lại policy; so issue, status, money, evidence, action, seller tồn tại và edge case không có item.",
+        output: ["errors: list[str]", "empty list = pass"],
+        authority: "Bắt buộc. Có một lỗi là pipeline raise exception và không ghi case đó.",
+        source: "app/agents.py"
+      },
+      output: {
+        type: "I/O + observability", title: "7. Ghi output và nhật ký",
+        meaning: "Xuất kết quả nộp bài và để lại dấu vết có thể kiểm toán.",
+        input: ["verified CaseOutput", "trace events", "run statistics"],
+        process: "Ghi vào file .tmp rồi replace atomically; sau batch ghi metadata về issue distribution, model và runtime.",
+        output: ["output/EC_xxx.json", "logging/trace.jsonl", "logging/metadata.json"],
+        authority: "Chỉ ghi dữ liệu đã qua Verifier; không thay đổi nội dung quyết định.",
+        source: "app/pipeline.py"
+      }
+    };
+
+    const nodes = [...document.querySelectorAll(".stage")];
+    const setPills = (id, values) => {
+      document.getElementById(id).replaceChildren(...values.map(value => {
+        const span = document.createElement("span");
+        span.className = "pill";
+        span.textContent = value;
+        return span;
+      }));
+    };
+
+    function showStep(key) {
+      const item = details[key];
+      if (!item) return;
+      nodes.forEach(node => node.classList.toggle("active", node.dataset.step === key));
+      document.getElementById("detailType").textContent = item.type;
+      document.getElementById("detailTitle").textContent = item.title;
+      document.getElementById("detailMeaning").textContent = item.meaning;
+      document.getElementById("detailProcess").textContent = item.process;
+      document.getElementById("detailAuthority").textContent = item.authority;
+      const source = document.getElementById("detailSource");
+      source.textContent = item.source;
+      source.href = item.source;
+      setPills("detailInput", item.input);
+      setPills("detailOutput", item.output);
+    }
+
+    nodes.forEach(node => node.addEventListener("click", () => showStep(node.dataset.step)));
+    showStep("input");
+  </script>
+</body>
+</html>
