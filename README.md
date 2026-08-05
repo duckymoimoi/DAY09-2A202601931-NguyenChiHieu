@@ -210,8 +210,12 @@ python -m pip install -e ".[test]"
 python -m pytest
 python -m app.main --llm-audit
 python -m scripts.validate_outputs
+python -m scripts.build_reference_outputs --compare output
+python -m scripts.analyze_evidence --candidate output
 ```
 
 Lệnh chạy chính tự tìm mọi file JSON trong `input/`, index các CSV cần thiết một lần, tạo output cùng tên trong `output/`, ghi lượt trace mới nhất vào `logging/trace.jsonl` và metadata vào `logging/metadata.json`. Lệnh cuối chỉ xác minh thư mục output, không tự tạo zip. Khi nộp, tự nén nguyên folder `output/` để archive có đường dẫn `output/EC_001.json` đến `output/EC_050.json` và không chứa `.gitkeep`.
+
+`scripts.build_reference_outputs` là oracle đặc tả độc lập: script đọc trực tiếp input/CSV và không import policy hoặc agent của ứng dụng. Bộ 50 JSON sinh bởi oracle được lưu tại `reference_output/` để test hồi quy; thư mục này chỉ dùng kiểm thử và **không được đưa vào file zip nộp bài**.
 
 Secret được đọc từ `.env` ở root repo hoặc thư mục cha. Hỗ trợ `OPENAI_API_KEY`, `OPENAI_API_KEY_2` đến `OPENAI_API_KEY_7` và Groq-compatible `OPENAI_BASE_URL`. Model ID được cố định trong `app/config.py`, không lấy từ `.env`.
