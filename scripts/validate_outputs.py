@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import zipfile
-from pathlib import Path
 
 from app.agents import VerifierAgent
 from app.config import load_settings
@@ -22,6 +20,14 @@ def main() -> None:
         extra = sorted(actual_names - expected_names)
         raise ValueError(f"Output filename mismatch; missing={missing}, extra={extra}")
 
+    unexpected_files = sorted(
+        path.name
+        for path in settings.output_dir.iterdir()
+        if path.is_file() and path.suffix.lower() != ".json"
+    )
+    if unexpected_files:
+        raise ValueError(f"Unexpected non-JSON files in output/: {unexpected_files}")
+
     repository = DataRepository.load(
         settings.data_dir,
         {case.customer_request.claimed_order_id for _, case in loaded},
@@ -38,25 +44,13 @@ def main() -> None:
         issue = output.assessment.primary_issue
         issue_counts[issue] = issue_counts.get(issue, 0) + 1
 
-    zip_path = settings.root / "output.zip"
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path in actual_paths:
-            archive.write(path, arcname=path.name)
-
-    with zipfile.ZipFile(zip_path) as archive:
-        names = archive.namelist()
-        if names != [path.name for path in actual_paths]:
-            raise ValueError("Archive content/order mismatch")
-        for name in names:
-            json.loads(archive.read(name))
-
     print(
         json.dumps(
             {
                 "validated_outputs": len(actual_paths),
                 "issue_counts": dict(sorted(issue_counts.items())),
-                "archive": str(zip_path),
-                "archive_files": len(actual_paths),
+                "output_directory": str(settings.output_dir),
+                "non_json_files": unexpected_files,
             },
             ensure_ascii=False,
             indent=2,

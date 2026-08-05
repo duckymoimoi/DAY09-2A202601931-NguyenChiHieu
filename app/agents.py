@@ -15,12 +15,39 @@ from .contracts import (
     ResponsibleParty,
     RootCauseAnalysis,
 )
+from .config import DEFAULT_CONFIDENCE
 from .data_repository import CaseContext
 from .policy import Decision, TOLERANCE, evaluate_policy
 
 
 def _as_float(value: Decimal) -> float:
     return float(f"{value:.2f}")
+
+
+EVIDENCE_TYPES_BY_CAUSE: dict[str, tuple[str, ...]] = {
+    "ORDER_CANCELED_AFTER_PAYMENT": ("payment",),
+    "ORDER_UNAVAILABLE_AFTER_PAYMENT": ("payment",),
+    "SELLER_HANDOFF_AFTER_LIMIT": ("item", "seller"),
+    "CARRIER_DELIVERED_AFTER_ESTIMATE": ("item",),
+    "MULTIPLE_PAYMENTS_RECONCILED": ("item", "payment"),
+    "DELIVERY_WITHIN_ESTIMATE": ("item", "payment"),
+}
+
+
+def _build_evidence(context: CaseContext, decision: Decision) -> list[str]:
+    """Return the smallest auditable evidence set for the matched policy rule."""
+    evidence = [f"order:{context.order.order_id}"]
+    evidence_types = EVIDENCE_TYPES_BY_CAUSE[decision.cause_code]
+
+    if "item" in evidence_types:
+        evidence.extend(f"item:{row.entity_id}" for row in context.items)
+    if "payment" in evidence_types:
+        evidence.extend(f"payment:{row.entity_id}" for row in context.payments)
+    if "seller" in evidence_types:
+        evidence.extend(f"seller:{seller_id}" for seller_id in decision.party_ids)
+
+    # Keep policy evidence even when a large order exceeds the schema's 10-ID cap.
+    return evidence[:9] + [f"policy:{decision.cause_code}"]
 
 
 class OrderSellerAgent:
@@ -75,13 +102,7 @@ class PolicyAgent:
         sellers = list(context.seller_ids)[:5]
         payments = [row.entity_id for row in context.payments][:5]
 
-        evidence = [f"order:{context.order.order_id}"]
-        evidence.extend(f"item:{entity_id}" for entity_id in items)
-        evidence.extend(f"payment:{entity_id}" for entity_id in payments)
-        evidence.extend(f"seller:{seller_id}" for seller_id in sellers)
-        # Reserve the last evidence slot for the policy fact.
-        evidence = evidence[:9]
-        evidence.append(f"policy:{decision.cause_code}")
+        evidence = _build_evidence(context, decision)
 
         parties = []
         if decision.party_type:
@@ -95,7 +116,7 @@ class PolicyAgent:
             assessment=Assessment(
                 primary_issue=decision.primary_issue,
                 case_status="action_required" if decision.refund > 0 else "no_action",
-                confidence=1.0,
+                confidence=DEFAULT_CONFIDENCE,
             ),
             affected_entities=AffectedEntities(
                 order_ids=orders,
@@ -157,6 +178,15 @@ class VerifierAgent:
         if invalid:
             errors.append(f"invalid evidence IDs: {sorted(invalid)}")
 
+        expected_evidence = set(_build_evidence(context, expected))
+        actual_evidence = set(output.evidence_ids)
+        if actual_evidence != expected_evidence:
+            missing = sorted(expected_evidence - actual_evidence)
+            irrelevant = sorted(actual_evidence - expected_evidence)
+            errors.append(
+                f"evidence relevance mismatch: missing={missing}, irrelevant={irrelevant}"
+            )
+
         if f"policy:{expected.cause_code}" not in output.evidence_ids:
             errors.append("missing policy evidence")
         if expected.action not in output.resolution_actions:
@@ -170,4 +200,3 @@ class VerifierAgent:
             if seller_id not in context.known_seller_ids:
                 errors.append(f"unknown seller ID: {seller_id}")
         return errors
-

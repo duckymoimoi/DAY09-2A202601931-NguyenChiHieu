@@ -47,10 +47,14 @@ The audit model is `llama-3.1-8b-instant` (8B parameters). Its result is recorde
 - A new policy version is added as a new ordered rule registry rather than branching on case IDs.
 - Multiple items, payments and sellers are aggregated before policy evaluation.
 - Entity and evidence collections are deterministically capped to the output limits.
+- Evidence is selected by the matched cause: only rows needed to prove the order state,
+  causal condition, responsible party or financial reconciliation are emitted. A valid
+  database ID is not emitted when it is unrelated to the matched rule.
 - Unknown orders, malformed input, unsupported policy versions and unmatched cases fail explicitly instead of producing guessed evidence.
 
 ## Hidden-edge defenses
 
 1. `valid_split_payment` precedes `unsupported_late_claim` when both match.
 2. Paid unavailable orders remain resolvable when item rows are absent; item/freight totals and affected item/seller sets remain empty.
-3. Multi-row totals use `Decimal`, evidence is built from real row identifiers, and caps are applied without dropping policy evidence.
+3. Multi-row totals use `Decimal`; evidence uses real row identifiers, excludes
+   rule-irrelevant rows, and applies caps without dropping policy evidence.

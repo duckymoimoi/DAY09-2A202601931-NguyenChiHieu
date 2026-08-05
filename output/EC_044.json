@@ -36,7 +36,6 @@
   "evidence_ids": [
     "order:d671370d11048a2dab56335d3d91823e",
     "item:d671370d11048a2dab56335d3d91823e:1",
-    "payment:d671370d11048a2dab56335d3d91823e:1",
     "seller:4a3ca9315b744ce9f8e9374361493884",
     "policy:SELLER_HANDOFF_AFTER_LIMIT"
   ],

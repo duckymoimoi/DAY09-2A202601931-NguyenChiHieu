@@ -36,7 +36,6 @@
   "evidence_ids": [
     "order:b90e46cdc30adec2f0fa041984341170",
     "item:b90e46cdc30adec2f0fa041984341170:1",
-    "payment:b90e46cdc30adec2f0fa041984341170:1",
     "seller:1ca7077d890b907f89be8c954a02686a",
     "policy:SELLER_HANDOFF_AFTER_LIMIT"
   ],

@@ -72,4 +72,31 @@ def test_generated_outputs_pass_independent_verifier(tmp_path) -> None:
         output_path = isolated.output_dir / input_path.name
         output = CaseOutput.model_validate_json(output_path.read_text(encoding="utf-8"))
         assert verifier.verify(repository.context_for(case), output) == []
+        assert output.assessment.confidence == 1.0
 
+
+def test_outputs_only_include_rule_relevant_evidence(tmp_path) -> None:
+    settings, loaded, repository, _ = _load_contexts()
+    isolated = replace(
+        settings,
+        output_dir=tmp_path / "output",
+        logging_dir=tmp_path / "logging",
+        llm_audit=False,
+    )
+    MultiAgentPipeline(isolated).run()
+    evidence_types = {
+        "ORDER_CANCELED_AFTER_PAYMENT": {"order", "payment", "policy"},
+        "ORDER_UNAVAILABLE_AFTER_PAYMENT": {"order", "payment", "policy"},
+        "SELLER_HANDOFF_AFTER_LIMIT": {"order", "item", "seller", "policy"},
+        "CARRIER_DELIVERED_AFTER_ESTIMATE": {"order", "item", "policy"},
+        "MULTIPLE_PAYMENTS_RECONCILED": {"order", "item", "payment", "policy"},
+        "DELIVERY_WITHIN_ESTIMATE": {"order", "item", "payment", "policy"},
+    }
+    for input_path, case in loaded:
+        context = repository.context_for(case)
+        cause = evaluate_policy(context).cause_code
+        output = CaseOutput.model_validate_json(
+            (isolated.output_dir / input_path.name).read_text(encoding="utf-8")
+        )
+        actual_types = {evidence.split(":", 1)[0] for evidence in output.evidence_ids}
+        assert actual_types == evidence_types[cause]

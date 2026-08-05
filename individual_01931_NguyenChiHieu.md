@@ -18,19 +18,19 @@
 | Multi-agent handoff | `app/agents.py`, `app/pipeline.py` | Typed facts | Decision và output draft | Hoàn thành |
 | Policy và financial logic | `app/policy.py` | `CaseContext` | Rule đầu tiên khớp | Hoàn thành |
 | Groq audit | `app/llm_audit.py` | Handoff selection | Audit JSON | Hoàn thành |
-| Validation và packaging | `scripts/validate_and_package.py` | 50 outputs | `output.zip` | Hoàn thành |
+| Validation đầu ra | `scripts/validate_outputs.py` | 50 outputs | Báo cáo validation | Hoàn thành |
 | Architecture, trace, metadata | `architecture.md`, `logging/` | Lượt chạy thật | Tài liệu và audit artifact | Hoàn thành |
 
 ## 3. Kết quả
 
 - Xử lý đủ 50 input mà không hard-code case ID hoặc order ID.
-- Sinh đủ 50 JSON và archive chỉ chứa đúng 50 file.
+- Sinh và xác minh đủ 50 JSON; việc nén folder `output/` được thực hiện thủ công khi nộp.
 - Phân bố issue: 8 canceled, 8 unavailable, 8 seller late, 8 logistics late, 9 split payment hợp lệ và 9 late claim không được hỗ trợ.
 - Groq audit: 50 request thành công, 50 quyết định handoff được đồng thuận.
 - Automated tests: 4/4 pass.
 - Secret scan: không phát hiện API key trong source/artifact.
 
-Artifact chính: `output/`, `output.zip`, `logging/trace.jsonl`, `logging/metadata.json`.
+Artifact chính: `output/`, `logging/trace.jsonl`, `logging/metadata.json`.
 
 ## 4. Giải thích kỹ thuật
 
@@ -43,10 +43,10 @@ Các contract đầu vào, handoff và đầu ra đều dùng Pydantic với `ex
 ```powershell
 python -m pytest
 python -m app.main --llm-audit
-python -m scripts.validate_and_package
+python -m scripts.validate_outputs
 ```
 
-Kết quả thực tế: 4 test pass; 50 output được verifier chấp nhận; 50/50 model audit thành công và đồng thuận; `output.zip` có đúng 50 JSON.
+Kết quả thực tế: 4 test pass; 50 output được verifier chấp nhận; 50/50 model audit thành công và đồng thuận; `output/` không có file lạ.
 
 ## 5. Quyết định kỹ thuật quan trọng
 
@@ -71,7 +71,8 @@ Một lỗi chất lượng khác là model ban đầu tự thêm điều kiện
 2. Các agent trao đổi fact packet có schema thay vì truyền prompt chứa toàn bộ CSV.
 3. Policy priority xử lý overlap giữa split payment và delivery-within-estimate.
 4. Unavailable order có thể không có item; khi đó item/seller rỗng nhưng full payment vẫn được refund.
-5. Nhiều item/payment phải được cộng bằng `Decimal`; evidence dùng row identifier thật và tuân thủ giới hạn số lượng.
+5. Nhiều item/payment phải được cộng bằng `Decimal`; evidence dùng row identifier thật,
+   chỉ giữ loại row trực tiếp chứng minh rule đã match và tuân thủ giới hạn số lượng.
 6. Verifier độc lập là quality gate cuối; LLM output không thể trực tiếp đi vào file nộp.
 
 ## 8. Cam kết
@@ -84,4 +85,3 @@ Một lỗi chất lượng khác là model ban đầu tự thêm điều kiện
 
 **Họ và tên:** Nguyễn Chí Hiếu  
 **Ngày xác nhận:** 2026-08-05
-
