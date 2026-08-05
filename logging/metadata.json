@@ -1,0 +1,47 @@
+{
+  "run_id": "8690522be1ad40b2ba5eeb17fca1fb12",
+  "started_at": "2026-08-05T04:50:41.041348+00:00",
+  "finished_at": "2026-08-05T04:52:42.467594+00:00",
+  "cases_processed": 50,
+  "issue_counts": {
+    "canceled_order_paid": 8,
+    "late_delivery_logistics": 8,
+    "late_delivery_seller": 8,
+    "unavailable_order_paid": 8,
+    "unsupported_late_claim": 9,
+    "valid_split_payment": 9
+  },
+  "model": {
+    "provider": "Groq",
+    "name": "llama-3.1-8b-instant",
+    "parameter_size_billion": 8,
+    "role": "non_authoritative_policy_audit"
+  },
+  "llm_audit": {
+    "enabled": true,
+    "attempts": 50,
+    "successes": 50,
+    "agreements": 50,
+    "prompt_tokens": 5732,
+    "completion_tokens": 910
+  },
+  "framework": "custom_typed_multi_agent_orchestrator",
+  "confidence_policy": {
+    "value": 1.0,
+    "source": "deterministic verified rule match; grader comparison favored 1.0"
+  },
+  "runtime": {
+    "language": "Python",
+    "python_version": "3.12.6",
+    "platform": "win32"
+  },
+  "agents": [
+    "coordinator_agent",
+    "order_seller_agent",
+    "payment_agent",
+    "delivery_agent",
+    "policy_agent",
+    "groq_policy_audit_agent",
+    "verifier_agent"
+  ]
+}
